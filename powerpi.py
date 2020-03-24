@@ -8,10 +8,11 @@ from collections import OrderedDict
 from datetime import datetime
 
 import paho.mqtt.client as mqtt
-from magnum import magnum
+from pymagnum.magnum import magnum
 from tzlocal import get_localzone
 
-from midnite import getModbusData
+
+from Midnite.midnite import ClassicDevice
 
 ################################################################
 # Variables                                                    #
@@ -53,7 +54,7 @@ def on_disconnect(client, userdata, rc):
 
 # OnPublish
 def on_publish(client, obj, mid):
-    loggin.info("Mid: {}".format(str(mid)))
+    logging.info("Mid: {}".format(str(mid)))
 
 
 ################################################################
@@ -233,91 +234,3 @@ while True:
     sleep = args.interval - interval
     if sleep > 0:
         time.sleep(sleep)
-
-
-class ClassicDevice:
-    def __init__(self, trace=False):
-        self.trace = trace
-        self.data = OrderedDict()
-        self.device = OrderedDict()
-
-        self.device["device"] = "Classic"
-        self.device["data"] = self.data
-
-        self.data["pcb_revision"] = 0
-        self.data["unit_type"] = 0
-        self.data["build_year"] = 0
-        self.data["build_month"] = 0
-        self.data["build_day"] = 0
-        self.data["info_flag_bits_3"] = 0
-        self.data["mac_1"] = 0
-        self.data["mac_0"] = 0
-        self.data["mac_3"] = 0
-        self.data["mac_2"] = 0
-        self.data["mac_5"] = 0
-        self.data["mac_4"] = 0
-        self.data["unit_id"] = 0
-        self.data["status_roll"] = 0
-        self.data["restart_timer_ms"] = 0
-        self.data["avg_battery_voltage"] = 0
-        self.data["avg_pv_voltage"] = 0
-        self.data["avg_battery_current"] = 0
-        self.data["avg_energy_today"] = 0
-        self.data["avg_power"] = 0
-        self.data["charge_stage"] = 0
-        self.data["charge_state"] = 0
-        self.data["avg_pv_current"] = 0
-        self.data["last_voc"] = 0
-        self.data["highest_pv_voltage_seen"] = 0
-        self.data["match_point_shadow"] = 0
-        self.data["amphours_today"] = 0
-        self.data["lifetime_energy"] = 0
-        self.data["lifetime_amphours"] = 0
-        self.data["info_flags_bits"] = -0
-        self.data["battery_temperature"] = 0
-        self.data["fet_temperature"] = 0
-        self.data["pcb_temperature"] = 0
-        self.data["no_power_timer"] = 0
-        self.data["log_interval"] = 0
-        self.data["modbus_port_register"] = 0
-        self.data["float_time_today"] = 0
-        self.data["absorb_time"] = 0
-        self.data["reserved_1"] = 0
-        self.data["pwm_readonly"] = 0
-        self.data["reason_for_reset"] = 0
-        self.data["equalize_time"] = 0
-        self.data["wbjr_cmd_s"] = 0
-        self.data["wbjr_raw_current"] = 0
-        self.data["wbjr_pos_amphour"] = 0
-        self.data["wbjr_neg_amphour"] = 0
-        self.data["wbjr_net_amphour"] = 0
-        self.data["wbjr_battery_current"] = 0
-        self.data["wbjr_crc"] = 0
-        self.data["shunt_temperature"] = 0
-        self.data["soc"] = 0
-        self.data["remaining_amphours"] = 0
-        self.data["total_amphours"] = 0
-        self.data["mppt_mode"] = 0
-        self.data["aux1_and_2_function"] = 0
-        self.data["name_0"] = 0
-        self.data["name_1"] = 0
-        self.data["name_2"] = 0
-        self.data["name_3"] = 0
-        self.data["name_4"] = 0
-        self.data["name_5"] = 0
-        self.data["name_6"] = 0
-        self.data["name_7"] = 0
-        self.data["temperature_compensated_regulated_battery_voltage"] = 0
-        self.data["nominal_battery_voltage"] = 0
-        self.data["ending_amps"] = 0
-        self.data["reason_for-_resting"] = 0
-        self.data["app_rev"] = 0
-        self.data["net_rev"] = 0
-
-    def read(self):
-        data = getModbusData(args.classichost, args.classicport)
-        for k,v in enumerate(data):
-            self.data[k] = v if v != self.data[k] else self.data[k]
-
-    def getDevice(self):
-        return self.device
