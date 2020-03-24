@@ -227,7 +227,7 @@ while True:
                 client.publish(topic, payload=payload)
         client.disconnect()
         client.loop_stop()
-    except:
+    except Exception as e:
         traceback.print_exc()
 
     interval = time.time() - start
