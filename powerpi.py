@@ -1,17 +1,16 @@
 import argparse
 import json
 import time
-import traceback
 import uuid
 import logging
 from collections import OrderedDict
 from datetime import datetime
 
 import paho.mqtt.client as mqtt
-from pymagnum.magnum import magnum
+from magnum import magnum
 from tzlocal import get_localzone
 
-
+from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from Midnite.midnite import ClassicDevice
 
 ################################################################
@@ -182,17 +181,30 @@ client.on_disconnect = on_disconnect
 client.on_publish = on_publish
 client.username_pw_set(username=args.username, password=args.password)
 
+
 saveddevices = {}
 
 while True:
     start = time.time()
-    # Read Classic data
-    classic = ClassicDevice()
-    classic.read()
     # Read Magnum data
     devices = magnumReader.getDevices()
-    # Concat data
-    devices.append(classic.getDevice)
+
+    # Read Classic data
+    try:
+        mbc = ModbusClient(args.classichost, args.classicport)
+        classic = ClassicDevice(mbc)
+        try:
+            classic.read()
+            # Remove data not be published
+            print(classic.device)
+            del classic.device["client"]
+            print(classic.device)
+            # Append data
+            devices.append(classic.device)
+        except Exception as e:
+            logging.error(e)
+    except Exception as e:
+        logging.error(e)
     # publish
     try:
         client.connect(args.broker)
@@ -207,7 +219,8 @@ while True:
             data["device"] = device["device"]
             savedkey = data["device"]
             duplicate = False
-            if not args.allowduplicates:
+
+            if not args.allowduplicates or device["device"].lower() != 'classic':
                 if savedkey in saveddevices:
                     if device["device"] == magnum.REMOTE:
                         # normalize time of day in remote data for equal test
@@ -228,7 +241,7 @@ while True:
         client.disconnect()
         client.loop_stop()
     except Exception as e:
-        traceback.print_exc()
+        logging.error(e)
 
     interval = time.time() - start
     sleep = args.interval - interval

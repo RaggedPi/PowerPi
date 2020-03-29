@@ -3,7 +3,6 @@
 from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
-# from pymodbus.compat import iteritems
 from collections import OrderedDict
 import logging
 import sys
@@ -18,7 +17,7 @@ def getRegisters(theClient, addr, count):
         if result.function_code >= 0x80:
             log.error("error getting {} for {} bytes".format(addr, count))
             return {}
-    except:
+    except Exception:
         log.error("Error getting {} for {} bytes".format(addr, count))
         return {}
 
@@ -31,8 +30,9 @@ def getDataDecoder(registers):
         byteorder=Endian.Big,
         wordorder=Endian.Little)
 
+
 def doDecode(addr, decoder):
-    if (addr == 4100 ):
+    if (addr == 4100):
         decoded = OrderedDict([
             ('pcb_revision', decoder.decode_8bit_uint()),                 # 4101 MSB
             ('unit_type', decoder.decode_8bit_uint()),                    # 4101 LSB
@@ -130,22 +130,23 @@ def doDecode(addr, decoder):
     return decoded
 
 
-# --------------------------------------------------------------------------- # 
-# Get the data from the Classic. 
-# Open the cleint, read in the register, close the client, decode the data, 
-# combine it and return it 
-# --------------------------------------------------------------------------- # 
-def getModbusData(classicHost, classicPort):
+# --------------------------------------------------------------------------- #
+# Get the data from the Classic.
+# Open the cleint, read in the register, close the client, decode the data,
+# combine it and return it
+# --------------------------------------------------------------------------- #
+def getModbusData(modclient):
     try:
-        modclient = ModbusClient(classicHost, port=classicPort)
-        # Test for succesful connect, if not, log error and mark modbusConnected = False
-        modclient.connect()
+        # Test for succesful connect
+        try:
+            modclient.connect()
+        except Exception as e:
+            log.error(e)
 
         result = modclient.read_holding_registers(4163, 2,  unit=10)
         if result.isError():
             # close the client
-            log.error("MODBUS isError H:{} P:{}".format(classicHost, classicPort))
-            modclient.close()
+            log.error("MODBUS isError")
             return {}
 
         theData = {}
@@ -155,23 +156,23 @@ def getModbusData(classicHost, classicPort):
         theData[4163] = getRegisters(theClient=modclient, addr=4163, count=2)
         theData[4209] = getRegisters(theClient=modclient, addr=4209, count=4)
         theData[4243] = getRegisters(theClient=modclient, addr=4243, count=32)
-        theData[16386]= getRegisters(theClient=modclient, addr=16386, count=4)
+        theData[16386] = getRegisters(theClient=modclient, addr=16386, count=4)
         modclient.close()
 
-    except:  # Catch all modbus excpetions
-        e = sys.exc_info()[0]
-        log.error("MODBUS Error H:{} P:{} e:{}".format(classicHost, classicPort, e))
+    except Exception as e:
+        #e = sys.exc_info()[0]
+        log.error(e)
         try:
             modclient.close()
-        except:
-            log.error("MODBUS Error on close H:{} P:{}".format(classicHost, classicPort))
+        except Exception as ee:
+            log.error("MODBUS Error on close: {}".format(ee))
 
         return {}
 
-    log.debug("Got data from Classic at {}:{}".format(classicHost,classicPort))
+    log.debug("Got data from Classic.")
 
     # Iterate over them and get the decoded data all into one dict
-    decoded = {}
+    decoded = OrderedDict()
     for index in theData:
         decoded = {**dict(decoded), **dict(doDecode(index, getDataDecoder(theData[index])))}
 
@@ -179,12 +180,13 @@ def getModbusData(classicHost, classicPort):
 
 
 class ClassicDevice:
-    def __init__(self, trace=False):
+    def __init__(self, mbc, trace=False):
         self.trace = trace
         self.data = OrderedDict()
         self.device = OrderedDict()
 
         self.device["device"] = "Classic"
+        self.device["client"] = mbc
         self.device["data"] = self.data
 
         self.data["pcb_revision"] = 0
@@ -258,9 +260,10 @@ class ClassicDevice:
         self.data["net_rev"] = 0
 
     def read(self):
-        data = getModbusData(args.classichost, args.classicport)
-        for k,v in enumerate(data):
-            self.data[k] = v if v != self.data[k] else self.data[k]
+        self.device["data"] = getModbusData(self.device["client"])
+#        for k, v in enumerate(self.data):
+#            self.data[k] = v if v != self.data[k] else self.data[k]
+
 
     def getDevice(self):
         return self.device
