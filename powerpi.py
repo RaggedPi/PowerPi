@@ -95,54 +95,64 @@ seldom.add_argument(
     default=1883,
     type=int,
     help="Broker port (default: %(default)s)")
+# MQTT Client ID
 logger.add_argument(
     "-c",
     "--clientid",
     default=uuidstr,
     help="MQTT Client ID (default: %(default)s)")
+# MQTT User
 logger.add_argument(
     "-u",
     "--username",
     default='mqtt_user',
     help="MQTT Username (default: %(default)s)")
+# MQTT Password
 logger.add_argument(
     "-P",
     "--password",
     default='mqtt',
     help="MQTT Client Password (default: %(default)s)")
+# MQTT Topic
 logger.add_argument(
     "-t",
     "--topic",
     default='powerpi/',
     help="Topic prefix (default: %(default)s)")
 
-# Global #######################################################g
+# Global #######################################################
+# Interval
 logger.add_argument(
     "-i",
     "--interval",
     default=60,
     type=int, dest='interval',
     help="Interval, in seconds, between publishing (default: %(default)s)")
+# Allow Duplicates
 logger.add_argument(
     "-D",
     "--duplicates",
     action="store_true",
     help="Log duplicate entries (default: %(default)s)",
     dest="allowduplicates")
+# Packet Count
 seldom.add_argument(
     "--packets",
     default=50,
     type=int,
     help="Number of packets to generate in reader (default: %(default)s)")
+# Timeout
 seldom.add_argument(
     "--timeout",
     default=0.005,
     type=float,
     help="Timeout for serial read (default: %(default)s)")
+# Trace
 seldom.add_argument(
     "--trace",
     action="store_true",
     help="Add raw packet info to data (default: %(default)s)")
+# Cleanup
 seldom.add_argument(
     "-nc",
     "--nocleanup",
@@ -157,7 +167,8 @@ if args.interval < 10 or args.interval > (60*60):
         "argument -i/--interval: must be between 10 seconds and 3600 (1 hour)")
 if args.topic[-1] != "/":
     args.topic += "/"
-print(
+
+logging.debug(
     "Options:{}".format(str(args).replace("Namespace(", "").replace(")", "")))
 
 print("Publishing to broker:{} Every:{} seconds".format(
@@ -170,17 +181,19 @@ magnumReader = magnum.Magnum(
     timeout=args.timeout,
     cleanpackets=args.cleanpackets)
 
-# Connect to mqtt broker
+# Set MQTT Flags
 mqtt.Client.connected_flag = False
 mqtt.Client.bad_connection_flag = False
 
+# MQTT Client
 client = mqtt.Client(client_id=args.clientid, clean_session=False)
+client.username_pw_set(username=args.username, password=args.password)
+
+# Set Callbacks
 client.on_connect = on_connect
 client.on_log = on_log
 client.on_disconnect = on_disconnect
 client.on_publish = on_publish
-client.username_pw_set(username=args.username, password=args.password)
-
 
 saveddevices = {}
 
@@ -195,10 +208,9 @@ while True:
         classic = ClassicDevice(mbc)
         try:
             classic.read()
-            # Remove data not be published
-            print(classic.device)
+            # Remove device attributes not to be published
             del classic.device["client"]
-            print(classic.device)
+
             # Append data
             devices.append(classic.device)
         except Exception as e:
@@ -210,10 +222,13 @@ while True:
         client.connect(args.broker)
         client.loop_start()
 
+        # Build Payload Data
         data = OrderedDict()
         now = int(time.time())
         data["datetime"] = datetime.now(
             get_localzone()).replace(microsecond=0).isoformat()
+
+        # Publish Each Device
         for device in devices:
             topic = args.topic + device["device"].lower()
             data["device"] = device["device"]
