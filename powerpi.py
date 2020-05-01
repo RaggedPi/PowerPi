@@ -1,3 +1,17 @@
+################################################################
+#  Ragged Jack Farm (RaggedPi)                                 #
+#  Package: PowerPi                                            #
+#  Author: David Durost <david.durost@gmail.com>               #
+#  Url: http://ragedjackfarm.net                               #
+#                                                              #
+#  RaspberryPi powered communications bridge between various   #
+#  modbus connections (TCP, RTS) and a MQTT broker.            #
+################################################################
+
+################################################################
+# Imports                                                      #
+################################################################
+# Globals
 import argparse
 import json
 import time
@@ -5,22 +19,33 @@ import uuid
 import logging
 from collections import OrderedDict
 from datetime import datetime
-
+# Magnum Energy
 import paho.mqtt.client as mqtt
 from magnum import magnum
 from tzlocal import get_localzone
-
+# Midnite Classic
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from Midnite.midnite import ClassicDevice
 
 ################################################################
 # Variables                                                    #
 ################################################################
+# UUID
 uuidstr = str(uuid.uuid1())
+# Saved Device List
+saveddevices = {}
+# Command-line Argument Parser
 parser = argparse.ArgumentParser(description="PowerPi MQTT Publisher")
+# Parser Groups
 logger = parser.add_argument_group("MQTT publish")
 reader = parser.add_argument_group("Magnum reader")
 seldom = parser.add_argument_group("Seldom used")
+# Logging
+log = logging.getLogger(__name__)
+file_hander = logging.FileHandler('powerpi.log')
+file_hander.setFormatter(
+    logging.Formatter('%(asctime)s :: %(loglevel)s :: %(message)s'))
+log.addHandler(file_hander)
 
 
 ################################################################
@@ -30,45 +55,45 @@ seldom = parser.add_argument_group("Seldom used")
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
         client.connected_flag = True
-        print("Connected. [RC: {}]".format(rc))
+        log.info("Connected. [RC: {}]".format(rc))
     else:
         client.bad_connection_flag = True
-        print("Bad connection. [RC: {}]".format(rc))
+        log.warning("Bad connection. [RC: {}]".format(rc))
 
 
 # OnLog
 def on_log(client, obj, mid):
-    print("[DEBUG] Mid: {}".format(str(mid)))
+    log.debug("Mid: {}".format(str(mid)))
 
 
 # OnDisconnect
 def on_disconnect(client, userdata, rc):
     log_data = "Disconnected. ReasonCode={}".format(rc)
     if rc != client.MQTT_ERR_SUCCESS:
-        logging.debug("on_disconnect: {}".format(log_data))
+        log.debug("on_disconnect: {}".format(log_data))
 
-    logging.info(log_data)
-    print(log_data)
+    log.info(log_data)
 
 
 # OnPublish
 def on_publish(client, obj, mid):
-    logging.info("Mid: {}".format(str(mid)))
+    log.info("Mid: {}".format(str(mid)))
 
 
 ################################################################
 # Command Arguments                                            #
 ################################################################
 # Magnum #######################################################
+# Device
 reader.add_argument(
     "-d",
     "--device",
     default="/dev/ttyUSB0",
-    help="Serial device name (default: %(default)s)")
+    help="Serial device path (default: %(default)s)")
 
 # Classic ######################################################
 # Host
-logger.add_argument(
+reader.add_argument(
     "-ch",
     "--classichost",
     default='localhost',
@@ -79,7 +104,7 @@ seldom.add_argument(
     "--classicport",
     default=502,
     type=int,
-    help="Broker port (default: %(default)s)")
+    help="Classic port (default: %(default)s)")
 
 # Broker #######################################################
 # IP
@@ -87,20 +112,20 @@ logger.add_argument(
     "-b",
     "--broker",
     default='localhost',
-    help="MQTT Broker address (default: %(default)s)")
+    help="MQTT Broker ip address (default: %(default)s)")
 # Port
 seldom.add_argument(
     "-p",
     "--port",
     default=1883,
     type=int,
-    help="Broker port (default: %(default)s)")
+    help="MQTT Broker port (default: %(default)s)")
 # MQTT Client ID
 logger.add_argument(
     "-c",
     "--clientid",
     default=uuidstr,
-    help="MQTT Client ID (default: %(default)s)")
+    help="MQTT Client id (default: %(default)s)")
 # MQTT User
 logger.add_argument(
     "-u",
@@ -165,15 +190,30 @@ args = parser.parse_args()
 if args.interval < 10 or args.interval > (60*60):
     parser.error(
         "argument -i/--interval: must be between 10 seconds and 3600 (1 hour)")
+# Ensure Proper Topic Formatting
 if args.topic[-1] != "/":
     args.topic += "/"
-
-logging.debug(
+# Log Options
+log.debug(
     "Options:{}".format(str(args).replace("Namespace(", "").replace(")", "")))
 
+# Notify
 print("Publishing to broker:{} Every:{} seconds".format(
     args.broker, args.interval))
 
+################################################################
+# MQTT Configuration                                           #
+################################################################
+# Set MQTT Flags
+mqtt.Client.connected_flag = False
+mqtt.Client.bad_connection_flag = False
+# MQTT Client
+client = mqtt.Client(client_id=args.clientid, clean_session=False)
+client.username_pw_set(username=args.username, password=args.password)
+
+################################################################
+# Readers                                                      #
+################################################################
 # Magnum Reader
 magnumReader = magnum.Magnum(
     device=args.device,
@@ -181,44 +221,47 @@ magnumReader = magnum.Magnum(
     timeout=args.timeout,
     cleanpackets=args.cleanpackets)
 
-# Set MQTT Flags
-mqtt.Client.connected_flag = False
-mqtt.Client.bad_connection_flag = False
-
-# MQTT Client
-client = mqtt.Client(client_id=args.clientid, clean_session=False)
-client.username_pw_set(username=args.username, password=args.password)
-
-# Set Callbacks
+################################################################
+# Set Callbacks                                                #
+################################################################
 client.on_connect = on_connect
 client.on_log = on_log
 client.on_disconnect = on_disconnect
 client.on_publish = on_publish
 
-saveddevices = {}
-
+################################################################
+# Main Loop                                                    #
+################################################################
 while True:
+    # Start Time
     start = time.time()
+
     # Read Magnum data
     devices = magnumReader.getDevices()
 
-    # Read Classic data
+    # Read Classic Data
     try:
-        mbc = ModbusClient(args.classichost, args.classicport)
-        classic = ClassicDevice(mbc)
+        # Create Instance
+        classic = ClassicDevice(
+            ModbusClient(args.classichost, args.classicport))
         try:
+            # Read Device
             classic.read()
-            # Remove device attributes not to be published
+            # Remove Non-Published Device Attributes
             del classic.device["client"]
 
-            # Append data
+            # Append Classic Device Data To Device List Data
             devices.append(classic.device)
         except Exception as e:
-            logging.error(e)
+            log.error(
+                "Error encountered reading Classic device: {}".format(e))
     except Exception as e:
-        logging.error(e)
-    # publish
+        log.error(
+            "Error encountered creating Classic connection: {}".format(e))
+
+    # Publish Device Data
     try:
+        # Connect To MQTT Broker
         client.connect(args.broker)
         client.loop_start()
 
@@ -235,29 +278,41 @@ while True:
             savedkey = data["device"]
             duplicate = False
 
+            # If NOT Data From Classic OR NOT Checking For Duplicate Devices
             if not args.allowduplicates or device["device"].lower() != 'classic':
+                # If Device Is Known
                 if savedkey in saveddevices:
+                    # If Magnum Remote
                     if device["device"] == magnum.REMOTE:
-                        # normalize time of day in remote data for equal test
+                        # Normalize Timestamps
                         for key in ["remotetimehours", "remotetimemins"]:
                             saveddevices[savedkey][key] = device["data"][key]
+                    # Duplicate Check
                     if saveddevices[savedkey] == device["data"]:
                         duplicate = True
+            # If NOT A Duplicate Device
             if not duplicate:
+                # Mark As Known Device
                 saveddevices[savedkey] = device["data"]
+                # Copy Payload Data
                 data["data"] = device["data"]
+                # Generate JSON
                 payload = json.dumps(
                     data,
                     indent=None,
                     ensure_ascii=True,
                     allow_nan=True,
                     separators=(',', ':'))
+                # Publish
                 client.publish(topic, payload=payload)
+        # Disconnect From MQTT Broker
         client.disconnect()
         client.loop_stop()
     except Exception as e:
-        logging.error(e)
-
+        log.error(
+            "Error connecting to MQTT broker: {}".format(e))
+    
+    # Claculate Sleep Timer
     interval = time.time() - start
     sleep = args.interval - interval
     if sleep > 0:
