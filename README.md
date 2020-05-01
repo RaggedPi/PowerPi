@@ -16,6 +16,8 @@ This implementation is for personal use and uploaded for educational purposes on
 [![GitHub issues](https://img.shields.io/github/issues/RaggedPi/PowerPi?style=plastic&logo=github)](https://github.com/RaggedPi/PowerPi/issues)
 [![https://www.buymeacoffee.com/ner0tic](https://img.shields.io/badge/Donate-Buy%20Me%20a%20coffee-orange?style=plastic&logo=buy-me-a-coffee)](https://www.buymeacoffee.com/ner0tic)
 
+## Setup And Usage
+[PowerPi Wiki](https://github.com/RaggedPi/PowerPi/wiki)
 
 ## License
 ```
