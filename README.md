@@ -2,7 +2,7 @@ PowerPi
 =======
 <h2>PowerPi is a python3 interfacing bridge between modbus connections and a MQTT broker.</h2>
 <p>
-This project is based of the amazing work of `Charles Godwin <magnum@godwin.ca>`'s `pymagnum <https://github.com/CharlesGodwin/pymagnum>` software and `Graham22 <https://github.com/graham22>`'s `work <https://github.com/graham22/ClassicMQTT>` communicating with Midnite's classic MPPT charge controller.  
+This project is based of the amazing work of [Charles Godwin's](mailto:magnum@godwin.ca) [pymagnum](https://github.com/CharlesGodwin/pymagnum) software and [Graham22's](https://github.com/graham22) [work communicating with Midnite's classic MPPT charge controller](https://github.com/graham22/ClassicMQTT).  
 
 To fit my use case, I needed a single project to talk to Magnum Energy's device's via Modbus (RS485) connection as well as to Midnite Solar's Classic 150 charge controller that could combine the data and transmit a universal payload back to my Home Automation System.
 
