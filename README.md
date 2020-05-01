@@ -10,9 +10,10 @@ This allows remote monitoring and control of my off grid home remotely.
 
 This implementation is for personal use and uploaded for educational purposes only.  See each originating project's licenses where approprate.
 
-[![GitHub License](https://img.shields.io/github/license/RaggedPi/PowerPi?style=plastic&logo=github)](https://github.com/RaggedPi/PowerPi/license.md)
-[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/RaggedPi/PowerPi.svg?style=plastic&logo=github)](https://github.com/RaggedPi/PowerPi/releases)
-[![GitHub issues](https://img.shields.io/github/issues/RaggedPi/PowerPi?style=plastic)](https://github.com/RaggedPi/PowerPi/issues)
+
+[![GitHub License](https://img.shields.io/github/license/RaggedPi/PowerPi?style=plastic&logo=github)](https://github.com/RaggedPi/PowerPi/LICENSE)
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/RaggedPi/PowerPi?include_prereleases&style=plastic&logo=github)](https://github.com/RaggedPi/PowerPi/releases)
+[![GitHub issues](https://img.shields.io/github/issues/RaggedPi/PowerPi?style=plastic&logo=github)](https://github.com/RaggedPi/PowerPi/issues)
 [![https://www.buymeacoffee.com/ner0tic](https://img.shields.io/badge/Donate-Buy%20Me%20a%20coffee-orange?style=plastic&logo=buy-me-a-coffee)](https://www.buymeacoffee.com/ner0tic)
 
 
