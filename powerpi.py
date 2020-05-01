@@ -311,7 +311,7 @@ while True:
     except Exception as e:
         log.error(
             "Error connecting to MQTT broker: {}".format(e))
-    
+
     # Claculate Sleep Timer
     interval = time.time() - start
     sleep = args.interval - interval
