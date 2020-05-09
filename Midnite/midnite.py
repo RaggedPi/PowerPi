@@ -149,7 +149,7 @@ def doDecode(addr, decoder):
             # 4371
             ('wbjr_battery_current', decoder.decode_16bit_int()/10.0),
             # 4372 MSB
-            ('wbjr_crc', decoder.decode_8bit_int())
+            ('wbjr_crc', decoder.decode_8bit_int()),
             # 4372 LSB
             ('shunt_temperature', decoder.decode_8bit_int() - 50.0),
             # 4373
