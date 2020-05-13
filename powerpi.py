@@ -13,6 +13,7 @@
 ################################################################
 # Globals
 import argparse
+import configparser
 import json
 import time
 import uuid
@@ -32,14 +33,15 @@ from Midnite.midnite import ClassicDevice
 ################################################################
 # UUID
 uuidstr = str(uuid.uuid1())
+
 # Saved Device List
 saveddevices = {}
-# Command-line Argument Parser
+
+# Parsers
 parser = argparse.ArgumentParser(description="PowerPi MQTT Publisher")
-# Parser Groups
-logger = parser.add_argument_group("MQTT publish")
-reader = parser.add_argument_group("Magnum reader")
-seldom = parser.add_argument_group("Seldom used")
+config = configparser.ConfigParser()
+config.read('config.env')
+
 # Logging
 log = logging.getLogger(__name__)
 file_hander = logging.FileHandler('powerpi.log')
@@ -85,103 +87,96 @@ def on_publish(client, obj, mid):
 ################################################################
 # Magnum #######################################################
 # Device
-reader.add_argument(
-    "-d",
+parser.add_argument(
     "--device",
     default="/dev/ttyUSB0",
     help="Serial device path (default: %(default)s)")
 
 # Classic ######################################################
 # Host
-reader.add_argument(
-    "-ch",
-    "--classichost",
-    default='localhost',
+parser.add_argument(
+    "--classic",
+    default=config['classic'].get('classic', '10.10.0.2'),
     help="Classic ip address (default: %(default)s)")
 # Port
-seldom.add_argument(
-    "-cp",
+parser.add_argument(
     "--classicport",
-    default=502,
+    default=config['classic'].get('port', 502),
     type=int,
     help="Classic port (default: %(default)s)")
 
 # Broker #######################################################
 # IP
-logger.add_argument(
-    "-b",
+parser.add_argument(
     "--broker",
-    default='localhost',
+    default=config['mqtt'].get('broker', 'localhost'),
     help="MQTT Broker ip address (default: %(default)s)")
 # Port
-seldom.add_argument(
-    "-p",
-    "--port",
-    default=1883,
+parser.add_argument(
+    "--brokerport",
+    default=config['mqtt'].get('port', 1883),
     type=int,
     help="MQTT Broker port (default: %(default)s)")
 # MQTT Client ID
-logger.add_argument(
-    "-c",
+parser.add_argument(
     "--clientid",
-    default=uuidstr,
+    default=config['mqtt'].get('client', uuidstr),
     help="MQTT Client id (default: %(default)s)")
 # MQTT User
-logger.add_argument(
-    "-u",
+parser.add_argument(
     "--username",
-    default='mqtt_user',
+    default=config['mqtt'].get('username', 'mqtt_user'),
     help="MQTT Username (default: %(default)s)")
 # MQTT Password
-logger.add_argument(
-    "-P",
+parser.add_argument(
     "--password",
-    default='mqtt',
+    default=config['secret'].get('mqtt_password', 'mqtt'),
     help="MQTT Client Password (default: %(default)s)")
 # MQTT Topic
-logger.add_argument(
-    "-t",
+parser.add_argument(
     "--topic",
-    default='powerpi/',
+    default=config['config'].get('root_topic', 'powerpi/'),
     help="Topic prefix (default: %(default)s)")
 
 # Global #######################################################
 # Interval
-logger.add_argument(
-    "-i",
+parser.add_argument(
     "--interval",
-    default=60,
-    type=int, dest='interval',
+    default=config['config'].get('interval', 60),
+    type=int,
+    dest='interval',
     help="Interval, in seconds, between publishing (default: %(default)s)")
 # Allow Duplicates
-logger.add_argument(
-    "-D",
+parser.add_argument(
     "--duplicates",
     action="store_true",
+    default=config['config'].get('allow_duplicates', False),
     help="Log duplicate entries (default: %(default)s)",
-    dest="allowduplicates")
+    dest="allow_duplicates")
 # Packet Count
-seldom.add_argument(
+parser.add_argument(
     "--packets",
-    default=50,
+    default=config['config'].get('packet_count', 50),
     type=int,
     help="Number of packets to generate in reader (default: %(default)s)")
 # Timeout
-seldom.add_argument(
+parser.add_argument(
     "--timeout",
-    default=0.005,
+    default=config['config'].get('timeout', 0.005),
     type=float,
     help="Timeout for serial read (default: %(default)s)")
 # Trace
-seldom.add_argument(
+parser.add_argument(
     "--trace",
     action="store_true",
+    default=config['config'].get('trace', False),
     help="Add raw packet info to data (default: %(default)s)")
 # Cleanup
-seldom.add_argument(
+parser.add_argument(
     "-nc",
     "--nocleanup",
     action="store_false",
+    default=config['config'].get('clean_packets', True),
     help="Suppress clean up of unknown packets (default: %(default)s)",
     dest='cleanpackets')
 
@@ -279,7 +274,7 @@ while True:
             duplicate = False
 
             # If NOT Data From Classic OR NOT Checking For Duplicate Devices
-            if not args.allowduplicates or device["device"].lower() != 'classic':
+            if not args.allowduplicates:  # or device["device"].lower() != 'classic':
                 # If Device Is Known
                 if savedkey in saveddevices:
                     # If Magnum Remote
