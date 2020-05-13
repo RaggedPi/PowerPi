@@ -3,23 +3,27 @@ PowerPi
 
 **PowerPi** is a python3 interfacing bridge between modbus connections and a MQTT broker.
 
->This project is based of the amazing work of [Charles Godwin](mailto:magnum@godwin.ca)'s [pymagnum software](https://github.com/CharlesGodwin/pymagnum) as well as [Graham22](https://github.com/graham22)'s work [communicating with Midnite's classic MPPT charge controller](https://github.com/graham22/ClassicMQTT).  
+>This project is based on the amazing work of [Charles Godwin](mailto:magnum@godwin.ca)'s [pymagnum software](https://github.com/CharlesGodwin/pymagnum) as well as [Graham22](https://github.com/graham22)'s work [communicating with Midnite's classic MPPT charge controller](https://github.com/graham22/ClassicMQTT).  
 
 To fit my use case, I needed a single project to talk to Magnum Energy's device's via Modbus (RS485) connection as well as to Midnite Solar's Classic 150 charge controller that could combine the data and transmit a universal payload back to my Home Automation System.
 
 This allows remote monitoring and control of my off grid home remotely and easily through a single contact node.
+# Table Of Contents
+1. [Configuration](#config)
+2. [Usage](#usage)
+3. [ToDo](#todo)
 
-This implementation is for personal use and uploaded for educational purposes only.  See each originating project's licenses where approprate.
+*This implementation is for personal use and uploaded for educational purposes only.  See each originating project's licenses where approprate.*
 
-## Configuration
+## Configuration {#config}
 
-`PowerPi` can be configured via a `config.env` file or via command-line arguments upon launch.  An example configuration file is supplied. 
+`PowerPi` can be configured via a `config.env` file or via command-line arguments upon launch.  An example configuration file is supplied.
 
 Config | Section | Flag | Default | Notes
 ---|---|---|---|---
 interval | **Config** | --interval | 60 | (s) interval between data publishing
 timeout | **Config** | --timeout | 0.005 | (s) mqtt timeout
-root_topic | **Config** | --topic | powerpi/ | root topic to publish to. [TOPIC]/[DEVICE]
+root_topic | **Config** | --topic | powerpi/ | root topic to publish to. **root_topic**/*device*
 allow_duplicates | **Config** | --duplicates | True | allow duplicate entries
 packet_count | **Config** | --packets | 50 | number of packets to scan at a time
 trace | **Config** | --trace | False | trace packets
@@ -33,9 +37,11 @@ classic | **Classic** | --classic | 10.10.0.2 | ip address of the Midnite Classi
 port | **Classic** | --classicport | 502 | port of the Midnite Classic
 device | **Magnum** | --device | /dev/ttyUSB0 | path to modbus device
 
-Any command-line arguments supplied upon execusion will override any settings within the `config.env` file.  Any values neglected from command-line or a config file will hold the default value shown above.
+*Any command-line arguments supplied upon execution will override any settings within the `config.env` file.*
 
-## Usage
+*Any values neglected from command-line or a config file will hold the default value shown above.*
+
+## Usage {#usage}
 `PowerPi` can be run from a bash shell or added to a startup script or routine.
 
 ### Launching
@@ -51,7 +57,7 @@ Classic:
 Advanced:
 `python3 powerpi.py --broker 192.168.0.100 --classic 192.168.0.101 --username classic_user --interval 3600 --duplicates --nocleanup`
 
-## ToDo
+## ToDo {#todo}
 
 * Add configs/ flags to enabled/ disabled classic and/or magnum communications if needed.
 
