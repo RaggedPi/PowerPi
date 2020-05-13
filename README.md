@@ -15,7 +15,7 @@ This allows remote monitoring and control of my off grid home remotely and easil
 
 *This implementation is for personal use and uploaded for educational purposes only.  See each originating project's licenses where approprate.*
 
-## Configuration {#config}
+## <a name="config"></a>Configuration
 
 `PowerPi` can be configured via a `config.env` file or via command-line arguments upon launch.  An example configuration file is supplied.
 
@@ -41,7 +41,7 @@ device | **Magnum** | --device | /dev/ttyUSB0 | path to modbus device
 
 *Any values neglected from command-line or a config file will hold the default value shown above.*
 
-## Usage {#usage}
+## <a name="usage"></a>Usage
 `PowerPi` can be run from a bash shell or added to a startup script or routine.
 
 ### Launching
@@ -57,7 +57,7 @@ Classic:
 Advanced:
 `python3 powerpi.py --broker 192.168.0.100 --classic 192.168.0.101 --username classic_user --interval 3600 --duplicates --nocleanup`
 
-## ToDo {#todo}
+## <a name="todo"></a>ToDo
 
 * Add configs/ flags to enabled/ disabled classic and/or magnum communications if needed.
 
