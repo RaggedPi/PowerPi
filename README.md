@@ -5,7 +5,7 @@ PowerPi
 
 >This project is based on the amazing work of [Charles Godwin](mailto:magnum@godwin.ca)'s [pymagnum software](https://github.com/CharlesGodwin/pymagnum) as well as [Graham22](https://github.com/graham22)'s work [communicating with Midnite's classic MPPT charge controller](https://github.com/graham22/ClassicMQTT).  
 
-To fit my use case, I needed a single project to talk to Magnum Energy's device's via Modbus (RS485) connection as well as to Midnite Solar's Classic 150 charge controller that could combine the data and transmit a universal payload back to my Home Automation System.
+To fit my use case, I needed a single project to talk to my Magnum Energy devices via Modbus (RS485) connection as well as to my Midnite Solar Classic 150 charge controller that could combine the data and transmit a universal payload back to my Home Automation System.
 
 This allows remote monitoring and control of my off grid home remotely and easily through a single contact node.
 # Table Of Contents
@@ -70,6 +70,7 @@ Advanced:
 [PowerPi Wiki](https://github.com/RaggedPi/PowerPi/wiki)
 
 ## License
+
 ```
 
  Copyright (c) 2019
@@ -87,5 +88,3 @@ Advanced:
   limitations under the License.
 
 ```
-
-
