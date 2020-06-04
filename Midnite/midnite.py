@@ -6,11 +6,11 @@ from collections import OrderedDict
 import logging
 
 # Logging
-log = logging.getLogger(__name__)
-file_hander = logging.FileHandler('powerpi.log')
-file_hander.setFormatter(
-    logging.Formatter('%(asctime)s :: %(loglevel)s :: %(message)s'))
-log.addHandler(file_hander)
+# Logging
+logging.basicConfig(
+  level=logging.DEBUG,
+  filename='powerpi.log',
+  format='%(asctime)s :: %(loglevel)s :: midnite :: %(message)s')
 
 
 # Get Registers
@@ -18,10 +18,10 @@ def getRegisters(theClient, addr, count):
     try:
         result = theClient.read_holding_registers(addr, count,  unit=10)
         if result.function_code >= 0x80:
-            log.error("error getting {} for {} bytes".format(addr, count))
+            logging.error("error getting {} for {} bytes".format(addr, count))
             return {}
     except Exception:
-        log.error("Error getting {} for {} bytes".format(addr, count))
+        logging.error("Error getting {} for {} bytes".format(addr, count))
         return {}
 
     return result.registers
@@ -227,12 +227,16 @@ def getModbusData(modclient):
         try:
             modclient.connect()
         except Exception as e:
-            log.error("Modbus Client Connect Attempt Error: {}".format(e))
+            logging.error("Modbus Client Connect Attempt Error: {}".format(e))
+            return {}
+        try:
+            result = modclient.read_holding_registers(4163, 2,  unit=10) or False
+        except ConnectionException as e:
+            logging.error("Modbus Client Connection Exception.")
+            return []
 
-        result = modclient.read_holding_registers(4163, 2,  unit=10)
-        if result.isError():
-            # close the client
-            log.error("Modbus result was an error")
+        if result.isError() or result is False:
+            logging.error("Modbus result was an error")
             return {}
 
         data = {}
@@ -246,15 +250,15 @@ def getModbusData(modclient):
         modclient.close()
 
     except Exception as e:
-        log.error("Could not get modbus data: {}".format(e))
+        logging.error("Could not get modbus data: {}".format(e))
         try:
             modclient.close()
         except Exception as ee:
-            log.error("Modbus error on close: {}".format(ee))
+            logging.error("Modbus error on close: {}".format(ee))
 
         return {}
 
-    log.debug("Obtained Classic data")
+    logging.debug("Obtained Classic data")
 
     # Iterate and decoded data
     decoded = OrderedDict()
@@ -353,7 +357,7 @@ class ClassicDevice:
 
     # Read From Classic
     def read(self):
-        self.device["data"] = getModbusData(self.device["client"])
+        self.device["data"] = getModbusData(self.device["client"]) or []
 
     # Get Device
     def getDevice(self):
