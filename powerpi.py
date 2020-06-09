@@ -133,7 +133,7 @@ def get_arguments():
     # Allow Duplicates
     parser.add(
       "-D",
-      "--duplicates",
+      "--allowduplicates",
       help="Log duplicate entries (default: %(default)s)",
       action="store_true",
       dest="allowduplicates")

@@ -24,10 +24,7 @@ Config | Section | Flag | Default | Notes
 interval | **Config** | --interval | 60 | (s) interval between data publishing
 timeout | **Config** | --timeout | 0.005 | (s) mqtt timeout
 root_topic | **Config** | --topic | powerpi/ | root topic to publish to. **root_topic**/*device*
-allow_duplicates | **Config** | --duplicates | True | allow duplicate entries
 packet_count | **Config** | --packets | 50 | number of packets to scan at a time
-trace | **Config** | --trace | False | trace packets
-clean_packets | **Config** | --nocleanup | True | clean up packets.
 broker | **Mqtt** | --broker | localhost | ip address of mqtt broker
 port | **Mqtt** | --brokerport | 1883 | mqtt broker port
 username | **Mqtt** | --username | mqtt_user | username to the mqtt broker
@@ -37,7 +34,17 @@ classic | **Classic** | --classic | 10.10.0.2 | ip address of the Midnite Classi
 port | **Classic** | --classicport | 502 | port of the Midnite Classic
 device | **Magnum** | --device | /dev/ttyUSB0 | path to modbus device
 
-*Any command-line arguments supplied upon execution will override any settings within the `config.env` file.*
+### Command-line Flags
+Flag | Description
+---|---
+--config | Supply a config file path
+--ignoremagnum | Does not poll and report Magnum data
+--ignoreclassic | Does not poll and report Classic data
+--allowduplicates | Allow duplicate entries
+--trace | Trace packets
+--nocleanup | Clean up packets.
+
+*Any command-line arguments supplied upon execution will override any settings within the `powerpi.conf` file.*
 
 *Any values neglected from command-line or a config file will hold the default value shown above.*
 
@@ -56,6 +63,10 @@ Classic:
 
 Advanced:
 `python3 powerpi.py --broker 192.168.0.100 --classic 192.168.0.101 --username classic_user --interval 3600 --duplicates --nocleanup`
+
+Command-line Flags:
+`python3 powerpi.py --config '~/.configs/powerpi.cfg' --ignoreclassic`
+
 
 ## <a name="todo"></a>ToDo
 
