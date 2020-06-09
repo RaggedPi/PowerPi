@@ -369,10 +369,10 @@ def main(args):
         devices = []
         if not args.ignoremagnum:
             devices.append(magnumReader.getDevices()[0])
-        print(devices)
+            
         if not args.ignoreclassic:
             devices.append(midniteReader.getDevices()[0])
-        print(devices)
+
         # Nothing to do, exit.
         if args.ignoremagnum and args.ignoreclassic:
             logger.info("No devices to report, exiting.")

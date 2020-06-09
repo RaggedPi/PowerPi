@@ -3,7 +3,7 @@
 
 __appname__ = "Midnite"
 __author__ = "David Durost <david.durost@gmail.com>"
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __license__ = "Apache2"
 
 import time
@@ -34,8 +34,6 @@ class Midnite:
         except Exception as e:
             logger.warning("Failed to connect to the Classic. {}".format(e))
             self.client = None
-
-        self.devices = [self.classic]
 
     def getDevices(self):
         """Return associated devices."""

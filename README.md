@@ -70,7 +70,7 @@ Command-line Flags:
 
 ## <a name="todo"></a>ToDo
 
-* Add configs/ flags to enabled/ disabled classic and/or magnum communications if needed.
+* Ensure more graceful failures.
 
 [![GitHub License](https://img.shields.io/github/license/RaggedPi/PowerPi?style=plastic&logo=github)](https://github.com/RaggedPi/PowerPi/LICENSE)
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/RaggedPi/PowerPi?include_prereleases&style=plastic&logo=github)](https://github.com/RaggedPi/PowerPi/releases)
