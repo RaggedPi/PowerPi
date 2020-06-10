@@ -309,7 +309,7 @@ def publish(devices):
         data = OrderedDict()
         data["datetime"] = datetime.now(
             get_localzone()).replace(microsecond=0).isoformat()
-
+        
         # Publish Each Device
         for device in devices:
             topic = args.topic + device["device"].lower()
@@ -368,10 +368,18 @@ def main(args):
         # Read devices
         devices = []
         if not args.ignoremagnum:
-            devices.append(magnumReader.getDevices()[0])
-            
+            data = magnumReader.getDevices()
+            if len(devices) > 0:
+                devices.append(data[0])
+            else:
+                devices = data
+
         if not args.ignoreclassic:
-            devices.append(midniteReader.getDevices()[0])
+            data = midniteReader.getDevices()
+            if len(devices) > 0:
+                devices.append(data[0])
+            else:
+                devices = data
 
         # Nothing to do, exit.
         if args.ignoremagnum and args.ignoreclassic:

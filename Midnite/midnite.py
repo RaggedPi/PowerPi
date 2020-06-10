@@ -316,8 +316,6 @@ class Midnite:
             sys.exit(1)
             return OrderedDict()
 
-        logger.debug("Obtained Classic data")
-
         # Decode data
         decoded = OrderedDict()
         for index in data:
