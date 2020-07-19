@@ -6,20 +6,22 @@ __author__ = "David Durost <david.durost@gmail.com>"
 __version__ = "0.2.1"
 __license__ = "Apache2"
 
-import time
 from copy import deepcopy
 import sys
-from datetime import datetime
-import logging
-logger = logging.getLogger(__appname__)
+
 import pymodbus.exceptions
 from collections import OrderedDict
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder
+from functools import partial
+from tenacity import retry, stop_after_attempt, wait_random, retry_if_exception_type
+import logging
+logger = logging.getLogger(__appname__)
+
 
 class Midnite:
-    def __init__(self, host='localhost', port=502, unit=10, timeout=0.001):
+    def __init__(self, host='localhost', port=502, unit=10, timeout=0.001, retries=30):
         """Constructor."""
         self.setup_logger()
         self.timeout = timeout
@@ -29,11 +31,15 @@ class Midnite:
         self.classic = None
         self.classic_model = -1
         self.unit = unit
+        self.retry_count = retries
+
         try:
             self.client = ModbusClient(self.host, self.port)
         except Exception as e:
             logger.warning("Failed to connect to the Classic. {}".format(e))
             self.client = None
+
+        self.devices = [self.classic]
 
     def getDevices(self):
         """Return associated devices."""
@@ -49,7 +55,7 @@ class Midnite:
                 deviceInfo = device.getDevice()
                 if deviceInfo:
                     devices.append(deviceInfo)
-   
+
         dp = deepcopy(devices)
         return dp
 
@@ -77,8 +83,16 @@ class Midnite:
         # Add handlers to logger
         logger.addHandler(fh)
         logger.addHandler(ch)
+  
+    retry_on_re_param_err = partial(
+        retry,
+        stop=stop_after_attempt(30),
+        wait=wait_random(min=1, max=2),
+        retry=retry_if_exception_type(pymodbus.exceptions.ParameterException)
+    )()
 
     # Get Registers
+    @retry_on_re_param_err
     def getRegisters(self, addr, count):
         """Return supplied register values."""
         try:
@@ -316,6 +330,8 @@ class Midnite:
             sys.exit(1)
             return OrderedDict()
 
+        logger.debug("Obtained Classic data")
+
         # Decode data
         decoded = OrderedDict()
         for index in data:
@@ -410,16 +426,13 @@ class ClassicDevice:
         self.data["app_rev"] = 0
         self.data["net_rev"] = 0
 
-
     def setReader(self, reader):
         """Set Reader."""
         self.reader = reader
 
-
     def setData(self, data):
         """Read in Classic data."""
         self.data.update(data)
-
 
     # Get Device
     def getDevice(self):
