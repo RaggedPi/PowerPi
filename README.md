@@ -17,7 +17,7 @@ This allows remote monitoring and control of my off grid home remotely and easil
 
 ## <a name="config"></a>Configuration
 
-`PowerPi` can be configured via a `config.env` file or via command-line arguments upon launch.  An example configuration file is supplied.
+`PowerPi` can be configured via a `powerpi.conf` file or via command-line arguments upon launch.  An example configuration file is supplied.
 
 Config | Section | Flag | Default | Notes
 ---|---|---|---|---
@@ -62,7 +62,7 @@ Classic:
 `python3 powerpi.py --classic 192.168.0.101`
 
 Advanced:
-`python3 powerpi.py --broker 192.168.0.100 --classic 192.168.0.101 --username classic_user --interval 3600 --duplicates --nocleanup`
+`python3 powerpi.py --broker 192.168.0.100 --classic 192.168.0.101 --username classic_user --interval 3600 --allowduplicates --nocleanup`
 
 Command-line Flags:
 `python3 powerpi.py --config '~/.configs/powerpi.cfg' --ignoreclassic`
