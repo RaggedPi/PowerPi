@@ -3,7 +3,7 @@
 
 __appname__ = "MidniteReader"
 __author__ = "David Durost <david.durost@gmail.com>"
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __license__ = "Apache2"
 
 from copy import deepcopy
@@ -21,13 +21,20 @@ logger = logging.getLogger(__appname__)
 class MidniteReader:
     def __init__(self):
         """Constructor."""
-        self.setupLogger()
+
+        self._configs = OrderedDict()
+        self.items = []
+
+        # Logging
+        self._setupLogger()
+
+        # Midnite Classic
+        self.classic = None
         self._configs['midnite']['timeout'] = os.getenv('timeout', 0.001)
         self._configs['midnite']['host'] = os.getenv('classichost', 'localhost')
         self._configs['midnite']['port'] = os.getenv('classicport', 502)
-        self.classic = None
         self._configs['midnite']['unit'] = os.getenv('unit', 10)
-        self.items = []
+
         try:
             self.client = ModbusClient(self.host, self.port)
         except Exception as e:
@@ -48,19 +55,19 @@ class MidniteReader:
         return deepcopy(items)
 
     # Set up Logger
-    def setup_logger(self):
+    def _setupLogger(self):
         """Setup the logger."""
         # Set default loglevel
         logger.setLevel(logging.DEBUG)
 
         # Create file handler
         # @todo: generate dated log files in a log directory
-        fh = logging.FileHandler("powerpi.log")
+        fn = self._configs['logging']['filename'] or os.getenv('logging_filename', 'midnite.log')
+        fh = logging.FileHandler(fn)
         fh.setLevel(logging.DEBUG)
 
         # Create console handler with a higher log level
         ch = logging.StreamHandler()
-
         ch.setLevel(logging.DEBUG)
 
         # Create formatter and add it to handlers
@@ -73,16 +80,29 @@ class MidniteReader:
         logger.addHandler(ch)
 
     # Get Registers
-    async def getRegisters(self, addr, count):
-        """Return supplied register values."""
+    async def getRegisters(self, addr: int, count: int = 1) -> list:
+        """Return supplied register values.
+
+        Args:
+            addr (int): Register address to start reading from
+            count (int): Number of registers to return.  Defaults to 1.
+
+        Returns:
+            list: Collection of register values
+        """
+        err = f"Error getting {addr} for {count} bytes"
+
         try:
-            result = await self.client.read_holding_registers(addr, count, unit=self._confis['midnite']['unit'])
-            
+            result = await self.client.read_holding_registers(
+              addr,
+              count,
+              unit=self._configs['midnite']['unit'])
+
             if result.function_code >= 0x80:
-                logging.error("error getting {} for {} bytes".format(addr, count))
+                logging.error(err)
                 return {}
-        except Exception:
-            logging.error("Error getting {} for {} bytes".format(addr, count))
+        except Exception as e:
+            logging.error(err)
             return {}
 
         return result.registers
@@ -256,8 +276,7 @@ class MidniteReader:
         elif (addr == 4243):
             decoded = OrderedDict([
                 # 4244
-                ('temp_regulated_battery_target_voltage',
-                  decoder.decode_16bit_int()/10.0),
+                ('temp_regulated_battery_target_voltage', decoder.decode_16bit_int()/10.0),
                 # 4245
                 ('nominal_battery_voltage', decoder.decode_16bit_uint()),
                 # 4246
@@ -323,9 +342,13 @@ class MidniteReader:
 
 class Classic:
     def __init__(self):
+        """Constructor."""
+
+        # Attributes
         self.data = OrderedDict()
         self.item = OrderedDict()
 
+        # Default attribute values
         self.item['item'] = "Classic"
         self.item['data'] = self.data
 
@@ -336,23 +359,28 @@ class Classic:
         self.data["build_month"] = 0
         self.data["build_day"] = 0
         self.data["info_flag_bits_3"] = 0
+
         self.data["mac_1"] = 0
         self.data["mac_0"] = 0
         self.data["mac_3"] = 0
         self.data["mac_2"] = 0
         self.data["mac_5"] = 0
         self.data["mac_4"] = 0
+
         self.data["unit_id"] = 0
         self.data["status_roll"] = 0
         self.data["restart_timer_ms"] = 0
+
         self.data["avg_battery_voltage"] = 0
         self.data["avg_pv_voltage"] = 0
         self.data["avg_battery_current"] = 0
         self.data["avg_energy_today"] = 0
         self.data["avg_power"] = 0
+        self.data["avg_pv_current"] = 0
+
         self.data["charge_stage"] = 0
         self.data["charge_state"] = 0
-        self.data["avg_pv_current"] = 0
+
         self.data["last_voc"] = 0
         self.data["highest_pv_voltage_seen"] = 0
         self.data["match_point_shadow"] = 0
@@ -360,9 +388,11 @@ class Classic:
         self.data["lifetime_energy"] = 0
         self.data["lifetime_amphours"] = 0
         self.data["info_flags_bits"] = -0
+
         self.data["battery_temperature"] = 0
         self.data["fet_temperature"] = 0
         self.data["pcb_temperature"] = 0
+
         self.data["no_power_timer"] = 0
         self.data["log_interval"] = 0
         self.data["modbus_port_register"] = 0
@@ -371,6 +401,7 @@ class Classic:
         self.data["pwm_readonly"] = 0
         self.data["reason_for_reset"] = 0
         self.data["equalize_time"] = 0
+
         self.data["wbjr_cmd_s"] = 0
         self.data["wbjr_raw_current"] = 0
         self.data["wbjr_pos_amphour"] = 0
@@ -379,11 +410,14 @@ class Classic:
         self.data["wbjr_battery_current"] = 0
         self.data["wbjr_crc"] = 0
         self.data["shunt_temperature"] = 0
+
         self.data["soc"] = 0
         self.data["remaining_amphours"] = 0
         self.data["total_amphours"] = 0
+
         self.data["mppt_mode"] = 0
         self.data["aux1_and_2_function"] = 0
+
         self.data["name_0"] = 0
         self.data["name_1"] = 0
         self.data["name_2"] = 0
@@ -392,18 +426,30 @@ class Classic:
         self.data["name_5"] = 0
         self.data["name_6"] = 0
         self.data["name_7"] = 0
+
         self.data["temperature_compensated_regulated_battery_voltage"] = 0
         self.data["nominal_battery_voltage"] = 0
         self.data["ending_amps"] = 0
         self.data["reason_for_resting"] = 0
+
         self.data["app_rev"] = 0
         self.data["net_rev"] = 0
 
     def setData(self, data: list):
-        """Read in Classic data."""
+        """Set read in Classic data.
+
+        Args:
+            data (list): Data from Midnite Classic device
+        """
+
         self.data.update(data)
 
     # Get Device
-    def getItem(self):
-        """Return item data."""
+    def getItem(self) -> OrderedDict:
+        """Return item data.
+
+        Returns:
+            OrderedDict: Collection containing device info and data
+        """
+
         return self.item

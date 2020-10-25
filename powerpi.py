@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 __appname__ = "PowerPi"
 __author__ = "David Durost <david.durost@gmail.com>"
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 __license__ = "Apache2"
 
 import sys
+import pendulum
 from datetime import datetime
 from collections import OrderedDict
 import paho.mqtt.client as mqtt
-from tzlocal import get_localzone
 import time
 import json
 from . import MidniteReader
@@ -17,7 +17,6 @@ from magnum import Magnum as MagnumReader
 import os
 import logging
 logger = logging.getLogger(__appname__)
-
 
 
 def __init__(self):
@@ -39,56 +38,71 @@ def __init__(self):
 #      TDAmeritradeReader()
     ]
 
+
 # Publish mqtt data
 def publish(self, items: list):
     """Publish device data."""
 
+    # Build Payload Header Data
+    data = OrderedDict()
+    data["datetime"] = pendulum.now().replace(microsecond=0).isoformat()
+
+    def publishItem(item: OrderedDict):
+        """Publish item to mqtt broker.
+
+        Args:
+            item (OrderedDict): OrderedDict of item data to publish
+        """
+
+        # Set a topic
+        topic = self.topic or self.root_topic + item["item"].lower()
+
+        # Defaults
+        data["item"] = item["item"]
+        savedKey = data["item"]
+        duplicate = False
+
+        # If NOT Checking For Duplicate items
+        if not self._configs['allow_duplicates']:
+            # If item Is Known
+            if savedKey in self._savedItems:
+                for key in ["remotetimehours", "remotetimemins"]:
+                    self._savedItems[savedKey][key] = item["data"][key]
+
+                # Duplicate Check
+                if self._savedItems[savedKey] == item["data"]:
+                    duplicate = True
+
+        # If NOT A Duplicate item
+        if not duplicate:
+            # Mark As Known item
+            self._savedItems[savedKey] = item["data"]
+
+            # Copy Payload Data
+            data["data"] = item["data"]
+
+            # Generate JSON
+            payload = json.dumps(
+                data,
+                indent=None,
+                ensure_ascii=True,
+                allow_nan=True,
+                separators=(',', ':'))
+            # Publish
+            self.client.publish(topic, payload=payload)
+
     try:
         # Connect To MQTT Broker
-        self.client.connect(self.broker['addr'], self.broker['port'])
+        self.client.connect(
+          self._configs['mqtt']['addr'],
+          self._configs['mqtt']['port'])
         self.client.loop_start()
         while not self.client.connected_flag:
             time.sleep(1)
 
-        # Build Payload Header Data
-        data = OrderedDict()
-        data["datetime"] = datetime.now(
-            get_localzone()).replace(microsecond=0).isoformat()
-
         # Publish Each item
         for item in items:
-            if self.topic is None:
-                topic = self.root_topic + item["item"].lower()
-
-            data["item"] = item["item"]
-            savedkey = data["item"]
-            duplicate = False
-
-            # If NOT Data From Classic OR NOT Checking For Duplicate items
-            if not self.allow_duplicates:
-                # If item Is Known
-                if savedkey in self.saved_items:
-                    for key in ["remotetimehours", "remotetimemins"]:
-                        self.saved_items[savedkey][key] = item["data"][key]
-                    # Duplicate Check
-                    if self.saved_items[savedkey] == item["data"]:
-                        duplicate = True
-
-            # If NOT A Duplicate item
-            if not duplicate:
-                # Mark As Known item
-                self.saved_items[savedkey] = item["data"]
-                # Copy Payload Data
-                data["data"] = item["data"]
-                # Generate JSON
-                payload = json.dumps(
-                    data,
-                    indent=None,
-                    ensure_ascii=True,
-                    allow_nan=True,
-                    separators=(',', ':'))
-                # Publish
-                self.client.publish(topic, payload=payload)
+            publishItem(item)
 
         # Disconnect From MQTT Broker
         self.client.loop_stop()
@@ -104,15 +118,20 @@ def publish(self, items: list):
 # Main loop
 def main(self):
     """Main loop."""
+
     # Notify of start
-    print("Publishing to broker:{} Every:{} seconds beginning at {}".format(
-      self.broker['addr'], self.interval, datetime.now()))
+    startup = f"Publishing to broker: {self._configs['mqtt']['broker']} "
+    startup += f"Every:{self._configs['interval']} seconds "
+    startup += f"beginning at {pendulum.now().to_datetime_string()}"
+    print(startup)
+
     while(True):
-        start = time.time()
+        start = pendulum.now()
+
         # Read items
         items = []
         for reader in self._readers:
-            if reader not in self.ignored_readers:
+            if reader not in self._ignoredReaders:
                 data = reader.getItems()
                 if len(items) > 0:
                     items.append(data[0])
@@ -123,14 +142,15 @@ def main(self):
         if len(self.readers) == len(self.ignored_readers) or len(self.readers) == 0:
             logger.info("No items to report, exiting.")
             sys.exit(0)
+
         # Publish Device Data
         publish(items)
 
         # Calculate Sleep Timer
-        interval = time.time() - start
-        sleep = self._configs['interval'] - interval
-        if sleep > 0:
-            time.sleep(sleep)
+        interval = pendulum.now() - start
+        sleep = self._configs['interval'] - interval.in_seconds
+        if sleep.in_seconds > 0:
+            time.sleep(sleep.in_seconds)
 
 
 #########
@@ -174,8 +194,12 @@ def setup_mqtt(self):
     mqtt.Client.bad_connection_flag = False
 
     # MQTT client
-    self.client = mqtt.Client(client_id=self._configs['mqtt']['client'], clean_session=False)
-    self.client.username_pw_set(username=self._configs['mqtt']['username'], password=self._configs['mqtt']['password'])
+    self.client = mqtt.Client(
+      client_id=self._configs['mqtt']['client'],
+      clean_session=False)
+    self.client.username_pw_set(
+      username=self._configs['mqtt']['username'],
+      password=self._configs['mqtt']['password'])
 
     # Set callbacks
     self.client.on_connect = on_connect
@@ -187,21 +211,27 @@ def setup_mqtt(self):
 #############
 # Callbacks #
 #############
-# OnConnect Callback
 def on_connect(client, userdata, flags, rc):
-    """On_connect callback."""
+    """OnConnect callback.
+
+    Args:
+        client: client
+        userdata: userdata
+        flags: flags
+        rc: rc
+    """
+
     if rc == 0:
         client.connected_flag = True
         client.disconnected_flag = False
         client.bad_connection_flag = False
-        logger.info("Connected to MQTT broker. [RC: {}]".format(rc))
+        logger.info(f"Connected to MQTT broker. [RC: {rc}]")
     else:
         client.bad_connection_flag = True
         client.connected_flag = False
-        logger.warning("Bad connection to MQTT broker. [RC: {}]".format(rc))
+        logger.warning(f"Bad connection to MQTT broker. [RC: {rc}]")
 
 
-# OnLog Callback
 def on_log(client, obj, mid):
     """On_log callback."""
     logger.debug("{} Mid: {}".format(datetime.now(), str(mid)))
