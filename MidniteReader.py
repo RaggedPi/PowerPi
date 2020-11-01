@@ -30,20 +30,23 @@ class MidniteReader:
 
         # Midnite Classic
         self.classic = None
+        self._configs['midnite'] = OrderedDict()
         self._configs['midnite']['timeout'] = os.getenv('timeout', 0.001)
         self._configs['midnite']['host'] = os.getenv('classichost', 'localhost')
         self._configs['midnite']['port'] = os.getenv('classicport', 502)
         self._configs['midnite']['unit'] = os.getenv('unit', 10)
 
         try:
-            self.client = ModbusClient(self.host, self.port)
+            self.client = ModbusClient(
+              self._configs['midnite']['host'],
+              self._configs['midnite']['port'])
         except Exception as e:
             logger.warning("Failed to connect to the Classic. {}".format(e))
             self.client = None
 
-    def getItems(self):
+    async def getItems(self):
         """Return associated items."""
-        self.items.append(Classic(data=self.getModbusData()))
+        self.items.append(Classic(data=await self.getModbusData()))
 
         items = []
         for item in self.items:
@@ -62,6 +65,8 @@ class MidniteReader:
 
         # Create file handler
         # @todo: generate dated log files in a log directory
+        self._configs['logging'] = OrderedDict()
+        self._configs['logging']['filename'] = None
         fn = self._configs['logging']['filename'] or os.getenv('logging_filename', 'midnite.log')
         fh = logging.FileHandler(fn)
         fh.setLevel(logging.DEBUG)
@@ -276,7 +281,8 @@ class MidniteReader:
         elif (addr == 4243):
             decoded = OrderedDict([
                 # 4244
-                ('temp_regulated_battery_target_voltage', decoder.decode_16bit_int()/10.0),
+                ('temp_regulated_battery_target_voltage',
+                 decoder.decode_16bit_int()/10.0),
                 # 4245
                 ('nominal_battery_voltage', decoder.decode_16bit_uint()),
                 # 4246
@@ -299,19 +305,19 @@ class MidniteReader:
         return decoded
 
     # Get modbus data from classic.
-    def getModbusData(self):
+    async def getModbusData(self):
         try:
             # Open modbus connection
             self.client.connect()
 
             data = OrderedDict()
             # Read registers
-            data[4100] = self.getRegisters(addr=4100, count=44)
-            data[4360] = self.getRegisters(addr=4360, count=22)
-            data[4163] = self.getRegisters(addr=4163, count=2)
-            data[4209] = self.getRegisters(addr=4209, count=4)
-            data[4243] = self.getRegisters(addr=4243, count=32)
-            data[16386] = self.getRegisters(addr=16386, count=4)
+            data[4100] = await self.getRegisters(addr=4100, count=44)
+            data[4360] = await self.getRegisters(addr=4360, count=22)
+            data[4163] = await self.getRegisters(addr=4163, count=2)
+            data[4209] = await self.getRegisters(addr=4209, count=4)
+            data[4243] = await self.getRegisters(addr=4243, count=32)
+            data[16386] = await self.getRegisters(addr=16386, count=4)
 
             # Close modbus connection
             self.client.close()
