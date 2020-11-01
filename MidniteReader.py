@@ -347,12 +347,12 @@ class MidniteReader:
 
 
 class Classic:
-    def __init__(self):
+    def __init__(self, data=None, item=None):
         """Constructor."""
 
         # Attributes
-        self.data = OrderedDict()
-        self.item = OrderedDict()
+        self.data = data or OrderedDict()
+        self.item = item or OrderedDict()
 
         # Default attribute values
         self.item['item'] = "Classic"
