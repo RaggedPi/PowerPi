@@ -1,2 +1,6 @@
 *.env
 *.log
+__pycache__/*
+Magnum/tools/*
+__init__.py
+Magnum/__pycache__/*
