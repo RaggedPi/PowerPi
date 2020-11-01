@@ -16,7 +16,6 @@ from MidniteReader import MidniteReader
 #from Magnum.magnum import Magnum as MagnumReader
 from MagnumReader import MagnumReader
 import os
-import asyncio
 import logging
 logger = logging.getLogger(__appname__)
 

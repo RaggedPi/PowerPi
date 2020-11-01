@@ -44,9 +44,9 @@ class MidniteReader:
             logger.warning("Failed to connect to the Classic. {}".format(e))
             self.client = None
 
-    async def getItems(self):
+    def getItems(self):
         """Return associated items."""
-        self.items.append(Classic(data=await self.getModbusData()))
+        self.items.append(Classic(data=self.getModbusData()))
 
         items = []
         for item in self.items:
@@ -85,7 +85,7 @@ class MidniteReader:
         logger.addHandler(ch)
 
     # Get Registers
-    async def getRegisters(self, addr: int, count: int = 1) -> list:
+    def getRegisters(self, addr: int, count: int = 1) -> list:
         """Return supplied register values.
 
         Args:
@@ -98,7 +98,7 @@ class MidniteReader:
         err = f"Error getting {addr} for {count} bytes"
 
         try:
-            result = await self.client.read_holding_registers(
+            result = self.client.read_holding_registers(
               addr,
               count,
               unit=self._configs['midnite']['unit'])
@@ -305,19 +305,19 @@ class MidniteReader:
         return decoded
 
     # Get modbus data from classic.
-    async def getModbusData(self):
+    def getModbusData(self):
         try:
             # Open modbus connection
             self.client.connect()
 
             data = OrderedDict()
             # Read registers
-            data[4100] = await self.getRegisters(addr=4100, count=44)
-            data[4360] = await self.getRegisters(addr=4360, count=22)
-            data[4163] = await self.getRegisters(addr=4163, count=2)
-            data[4209] = await self.getRegisters(addr=4209, count=4)
-            data[4243] = await self.getRegisters(addr=4243, count=32)
-            data[16386] = await self.getRegisters(addr=16386, count=4)
+            data[4100] = self.getRegisters(addr=4100, count=44)
+            data[4360] = self.getRegisters(addr=4360, count=22)
+            data[4163] = self.getRegisters(addr=4163, count=2)
+            data[4209] = self.getRegisters(addr=4209, count=4)
+            data[4243] = self.getRegisters(addr=4243, count=32)
+            data[16386] = self.getRegisters(addr=16386, count=4)
 
             # Close modbus connection
             self.client.close()
