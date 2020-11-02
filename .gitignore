@@ -3,4 +3,5 @@
 __pycache__/*
 Magnum/tools/*
 __init__.py
-Magnum/__pycache__/*
+.vscode/*
+Midnite/__pycache__/*

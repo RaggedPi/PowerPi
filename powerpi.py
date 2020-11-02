@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 __appname__ = "PowerPi"
 __author__ = "David Durost <david.durost@gmail.com>"
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 __license__ = "Apache2"
 
 import sys
@@ -16,10 +16,12 @@ from MidniteReader import MidniteReader
 #from Magnum.magnum import Magnum as MagnumReader
 from MagnumReader import MagnumReader
 import os
+from dotenv import load_dotenv, find_dotenv
 import logging
-logger = logging.getLogger(__appname__)
 
+logger = logging.getLogger(__appname__)
 _ignoredReaders = {}
+load_dotenv(find_dotenv())
 
 
 class PowerPi:
@@ -28,24 +30,38 @@ class PowerPi:
         # mqtt
         self._configs['mqtt'] = OrderedDict()
         self._configs['mqtt']['addr'] = os.getenv('broker', 'localhost')
-        self._configs['mqtt']['port'] = os.getenv('port', 1883)
+        self._configs['mqtt']['port'] = int(os.getenv('port', 1883))
         self._configs['mqtt']['client'] = os.getenv('clientid', 'powerpi-client')
         self._configs['mqtt']['username'] = os.getenv('username', 'mqtt_user')
         self._configs['mqtt']['password'] = os.getenv('password', 'mqtt')
         self._configs['mqtt']['roottopic'] = os.getenv('roottopic')
         # global
-        self._configs['interval'] = os.getenv('interval', 60)
-        self._configs['timeout'] = os.getenv('timeout', 0.001)
+        self._configs['interval'] = int(os.getenv('interval', 60))
+        self._configs['timeout'] = float(os.getenv('timeout', 0.001))
+        self._configs['roottopic'] = os.getenv('roottopic', 'powerpi/')
+        self._configs['allow_duplicates'] = bool(os.getenv('allowduplicates', False))
+        self.topic = None
+        # magnum
+        self._configs['magnum'] = OrderedDict()
+        self._configs['magnum']['device'] = os.getenv('device', '/dev/ttyUSB0')
+        self._configs['magnum']['packets'] = os.getenv('packets', 50)
 
         # readers
         self._readers = [
-          MidniteReader(),
-          MagnumReader(),
+          #MidniteReader(),
+          MagnumReader(
+            device=self._configs['magnum']['device'],
+            timeout=float(self._configs['timeout']),
+            packets=int(self._configs['magnum']['packets'])),
           # TDAmeritradeReader()
         ]
+        self._savedItems = OrderedDict()
 
         # Logging
         self._setupLogger()
+
+        # Mqtt
+        self.setup_mqtt()
 
     def publishItem(
       self,
@@ -57,12 +73,17 @@ class PowerPi:
             item (list): OrderedDict of item data to publish
         """
 
+        if 'device' in i.keys():
+            i["item"] = i["device"]
+
+        print(i["item"])
+
         data = OrderedDict()
         data["datetime"] = timestamp.replace(microsecond=0).isoformat()
 
         # Set a topic
-        topic = self.topic or self.root_topic + i["item"].lower()
-
+        topic = self._configs['roottopic'] + i["item"].lower()
+        
         # Defaults
         data["item"] = i["item"]
         savedKey = data["item"]
@@ -73,12 +94,12 @@ class PowerPi:
             # If item Is Known
             if savedKey in self._savedItems:
                 for key in ["remotetimehours", "remotetimemins"]:
-                    self._savedItems[savedKey][key] = i["data"][key]
+                    if key in i["data"].keys():
+                        self._savedItems[savedKey][key] = i["data"][key]
 
                 # Duplicate Check
                 if self._savedItems[savedKey] == i["data"]:
                     duplicate = True
-
         # If NOT A Duplicate item
         if not duplicate:
             # Mark As Known item
@@ -101,6 +122,8 @@ class PowerPi:
     def publish(self, items: list):
         """Publish device data."""
 
+        print(f"publishing {len(items)} items")
+
         try:
             # Connect To MQTT Broker
             self.client.connect(
@@ -112,7 +135,7 @@ class PowerPi:
 
             # Publish Each item
             for item in items:
-                publishItem(item)
+                self.publishItem(item)
 
             # Disconnect From MQTT Broker
             self.client.loop_stop()
@@ -121,8 +144,7 @@ class PowerPi:
             self.client.disconnected_flag = True
 
         except Exception as e:
-            logging.error(
-                "Failed connect to MQTT broker: {}".format(e))
+            logging.error(f"Failed connect to MQTT broker: {e}")
 
     # Set up Logger
     def _setupLogger(self):
@@ -167,10 +189,10 @@ class PowerPi:
           password=self._configs['mqtt']['password'])
 
         # Set callbacks
-        self.client.on_connect = on_connect
-        self.client.on_log = on_log
-        self.client.on_disconnect = on_disconnect
-        self.client.on_publish = on_publish
+        self.client.on_connect = self.on_connect
+        self.client.on_log = self.on_log
+        self.client.on_disconnect = self.on_disconnect
+        self.client.on_publish = self.on_publish
 
     # Callbacks #
     def on_connect(self, client, userdata, flags, rc):
@@ -236,16 +258,19 @@ if __name__ == '__main__':
 
             # Read items
             items = []
+            print(len(items))
             for reader in pp._readers:
                 if reader not in _ignoredReaders:
                     data = reader.getItems()
+                    print(f"data: {len(data)}")
                     if len(items) > 0:
                         items.append(data[0])
                     else:
                         items = data
+                    print(f"items: {len(items)}")
 
             # Nothing to do, exit.
-            if len(pp.readers) == len(pp.ignored_readers) or len(pp.readers) == 0:
+            if len(pp._readers) == len(_ignoredReaders) or len(pp._readers) == 0:
                 logger.info("No items to report, exiting.")
                 sys.exit(0)
 
@@ -253,17 +278,14 @@ if __name__ == '__main__':
             pp.publish(items)
 
             # Calculate Sleep Timer
-            interval = pendulum.now() - start
-            sleep = pp._configs['interval'] - interval.in_seconds
-            if sleep.in_seconds > 0:
-                time.sleep(sleep.in_seconds)
+            interval = pendulum.period(start, pendulum.now())
+            if interval.remaining_seconds > 0:
+                time.sleep(interval.remaining_seconds)
 
         # end
         finish_time = pendulum.now()
         logger.debug(finish_time)
-        logger.debug(
-          'Execution time: {time}'.format(
-            time=(finish_time - start_time)))
+        logger.debug(f'Execution time: {finish_time.subtract(start_time)}')
         logger.debug("#"*20 + " END EXECUTION " + "#"*20)
 
         # bye

@@ -3,7 +3,7 @@
 
 __appname__ = "MidniteReader"
 __author__ = "David Durost <david.durost@gmail.com>"
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __license__ = "Apache2"
 
 from copy import deepcopy
