@@ -9,6 +9,8 @@ __license__ = "Apache2"
 from copy import deepcopy
 import sys
 import os
+import pendulum
+from tzlocal import get_localzone
 import pymodbus.exceptions
 from collections import OrderedDict
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
@@ -24,6 +26,7 @@ class MidniteReader:
 
         self._configs = OrderedDict()
         self.items = []
+        self._lastread = None
 
         # Logging
         self._setupLogger()
@@ -35,21 +38,29 @@ class MidniteReader:
         self._configs['midnite']['host'] = os.getenv('classichost', 'localhost')
         self._configs['midnite']['port'] = os.getenv('classicport', 502)
         self._configs['midnite']['unit'] = os.getenv('unit', 10)
+        self._configs['midnite']['read_interval'] = os.getenv('readinterval', 60)
 
         try:
             self.client = ModbusClient(
               self._configs['midnite']['host'],
               self._configs['midnite']['port'])
+            self.items = [Classic(data=self.getModbusData())]
         except Exception as e:
             logger.warning("Failed to connect to the Classic. {}".format(e))
             self.client = None
 
+    def getName(self):
+        return 'midnite'
+
     def getItems(self):
         """Return associated items."""
-        self.items.append(Classic(data=self.getModbusData()))
+        #if len(self.items) == 0:
+        if not self.classic:
+            self.classic = Classic()
+        self.classic.parse(self.getModbusData())
 
         items = []
-        for item in self.items:
+        for item in [self.classic]:
             if item:
                 info = item.getItem()
                 if info:
@@ -306,57 +317,62 @@ class MidniteReader:
 
     # Get modbus data from classic.
     def getModbusData(self):
-        try:
-            # Open modbus connection
-            self.client.connect()
-
-            data = OrderedDict()
-            # Read registers
-            data[4100] = self.getRegisters(addr=4100, count=44)
-            data[4360] = self.getRegisters(addr=4360, count=22)
-            data[4163] = self.getRegisters(addr=4163, count=2)
-            data[4209] = self.getRegisters(addr=4209, count=4)
-            data[4243] = self.getRegisters(addr=4243, count=32)
-            data[16386] = self.getRegisters(addr=16386, count=4)
-
-            # Close modbus connection
-            self.client.close()
-
-        except pymodbus.exceptions.ConnectionException as e:
-            logger.error("Modbus Client Connect Attempt Error: {}".format(e))
-            sys.exit(1)
-            return OrderedDict()
-
-        except Exception as e:
-            logger.error("Could not get modbus data: {}".format(e))
+        now = pendulum.now(get_localzone())
+        if not self._lastread or (now.diff(self._lastread).in_seconds() >= self._configs['midnite']['read_interval']):
+            print(f"reading registers")
+            print(f"last read: {self._lastread or 'none'}")
+            self._lastread = now
             try:
+                # Open modbus connection
+                self.client.connect()
+
+                data = OrderedDict()
+                # Read registers
+                data[4100] = self.getRegisters(addr=4100, count=44)
+                data[4360] = self.getRegisters(addr=4360, count=22)
+                data[4163] = self.getRegisters(addr=4163, count=2)
+                data[4209] = self.getRegisters(addr=4209, count=4)
+                data[4243] = self.getRegisters(addr=4243, count=32)
+                data[16386] = self.getRegisters(addr=16386, count=4)
+
+                # Close modbus connection
                 self.client.close()
-            except Exception as ee:
-                logger.error("Modbus error on close: {}".format(ee))
-            sys.exit(1)
-            return OrderedDict()
+            except pymodbus.exceptions.ParameterException as e:
+                logger.info(e)
+                return OrderedDict()
+            except pymodbus.exceptions.ConnectionException as e:
+                logger.error("Modbus Client Connect Attempt Error: {}".format(e))
+                # sys.exit(1)
+                return OrderedDict()
 
-        # Decode data
-        decoded = OrderedDict()
-        for index in data:
-            decoded = {
-                **dict(decoded),
-                **dict(self.doDecode(index, self.getDataDecoder(data[index])))}
+            except Exception as e:
+                logger.error("Could not get modbus data: {}".format(e))
+                try:
+                    self.client.close()
+                except Exception as ee:
+                    logger.error("Modbus error on close: {}".format(ee))
+                # sys.exit(1)
+                return OrderedDict()
 
-        return decoded
+            # Decode data
+            decoded = OrderedDict()
+            for index in data:
+                decoded = {
+                    **dict(decoded),
+                    **dict(self.doDecode(index, self.getDataDecoder(data[index])))}
+
+            return decoded
+        else:
+            print(f"last read: {self._lastread}")
+            print(f"timespan: {now.diff_for_humans(self._lastread)}")
+            return self.classic.data
 
 
 class Classic:
     def __init__(self, data=None, item=None):
         """Constructor."""
 
-        # Attributes
-        self.data = data or OrderedDict()
-        self.item = item or OrderedDict()
-
-        # Default attribute values
-        self.item['item'] = "Classic"
-        self.item['data'] = self.data
+        self.data = OrderedDict()
 
         # Default Register Value Data
         self.data["pcb_revision"] = 0
@@ -441,6 +457,20 @@ class Classic:
         self.data["app_rev"] = 0
         self.data["net_rev"] = 0
 
+        if data:
+            self.data = {**self.data, **data}
+
+        if not item:
+            self.item = OrderedDict()
+            self.item['item'] = "Classic"
+        else:
+            self.item = item
+        self.item['data'] = self.data
+
+    def _merge(dict1, dict2):
+        res = {**dict1, **dict2}
+        return res
+
     def setData(self, data: list):
         """Set read in Classic data.
 
@@ -448,7 +478,10 @@ class Classic:
             data (list): Data from Midnite Classic device
         """
 
-        self.data.update(data)
+        self.data = {**self.data, **data}
+
+    def parse(self, data: list):
+        self.setData(data)
 
     # Get Device
     def getItem(self) -> OrderedDict:
